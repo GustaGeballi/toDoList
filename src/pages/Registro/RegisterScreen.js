@@ -14,7 +14,6 @@ const firebaseConfig = {
   appId: "1:720614305509:web:ca2aff3904345a33702e0c"
 };
 // Inicialização do Firebase
-// Inicialização do Firebase
 const firebaseApp = initializeApp(firebaseConfig);
 const auth = getAuth(firebaseApp);
 
@@ -26,9 +25,10 @@ const RegisterScreen = ({ navigation }) => {
   const [phone, setPhone] = useState('');
   const [error, setError] = useState('');
   const [isErrorModalVisible, setIsErrorModalVisible] = useState(false);
+  const [selectedGender, setSelectedGender] = useState(null);
 
   const handleRegister = () => {
-    if (!email || !password || !fullName || !age || !phone) {
+    if (!email || !password || !fullName || !age || !phone || !selectedGender) {
       setError('Por favor, preencha todos os campos corretamente.');
       setIsErrorModalVisible(true);
       return;
@@ -99,6 +99,30 @@ const RegisterScreen = ({ navigation }) => {
           keyboardType="phone-pad"
         />
 
+        <View style={styles.genderContainer}>
+          <Text style={styles.genderLabel}>Sexo:</Text>
+          <View style={styles.genderOptions}>
+            <Text
+              style={[
+                styles.genderOption,
+                selectedGender === 'male' && styles.selectedGenderOption,
+              ]}
+              onPress={() => setSelectedGender('male')}
+            >
+              Masculino
+            </Text>
+            <Text
+              style={[
+                styles.genderOption,
+                selectedGender === 'female' && styles.selectedGenderOption,
+              ]}
+              onPress={() => setSelectedGender('female')}
+            >
+              Feminino
+            </Text>
+          </View>
+        </View>
+
         <Button
           title="Register"
           onPress={handleRegister}
@@ -156,6 +180,32 @@ const styles = StyleSheet.create({
     fontSize: 24,
     color: '#ff4141',
     fontWeight: '600',
+  },
+  genderContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  genderLabel: {
+    fontSize: 16,
+    marginRight: 10,
+  },
+  genderOptions: {
+    flexDirection: 'row',
+  },
+  genderOption: {
+    fontSize: 16,
+    marginRight: 10,
+    paddingVertical: 2,
+    paddingHorizontal: 6,
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 5,
+  },
+  selectedGenderOption: {
+    backgroundColor: '#ff4141',
+    color: '#fff',
+    borderColor: '#ff4141',
   },
   modalContainer: {
     flex: 1,

@@ -21,11 +21,17 @@ export default function TaskLists() {
   const [editedTask, setEditedTask] = useState('');
   const [showOptionsModal, setShowOptionsModal] = useState(false);
   const [selectedTaskIndex, setSelectedTaskIndex] = useState(null);
+  const [showErrorModal, setShowErrorModal] = useState(false);
 
   const handleAddTask = () => {
     Keyboard.dismiss();
-    setTaskItems([...taskItems, { text: task, isSelected: false }]);
-    setTask('');
+
+    if (task.trim() === '') {
+      setShowErrorModal(true);
+    } else {
+      setTaskItems([...taskItems, { text: task, isSelected: false }]);
+      setTask('');
+    }
   };
 
   const completeTask = (index) => {
@@ -74,6 +80,10 @@ export default function TaskLists() {
     setShowOptionsModal(false);
   };
 
+  const handleCloseErrorModal = () => {
+    setShowErrorModal(false);
+  };
+
   const handleTaskPress = (index) => {
     let itemsCopy = [...taskItems];
     itemsCopy[index].isSelected = !itemsCopy[index].isSelected;
@@ -120,7 +130,7 @@ export default function TaskLists() {
         </View>
       </ScrollView>
 
-      {editingTask === null && ( // Adiciona esta condição
+      {editingTask === null && ( // Adicione esta condição
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.writeTaskWrapper}
@@ -156,6 +166,18 @@ export default function TaskLists() {
             </View>
           </View>
         </TouchableWithoutFeedback>
+      </Modal>
+
+      {/* Error Modal */}
+      <Modal visible={showErrorModal} transparent={true} onRequestClose={handleCloseErrorModal}>
+        <View style={styles.modalContainer}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalMessage}>Você deve preencher uma tarefa</Text>
+            <TouchableOpacity style={styles.modalButton} onPress={handleCloseErrorModal}>
+              <Text style={styles.modalButtonText}>OK</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
       </Modal>
     </View>
   );
@@ -253,5 +275,31 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     color: '#888',
+  },
+  modalContainer: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: '#FFF',
+    borderRadius: 10,
+    padding: 20,
+    alignItems: 'center',
+  },
+  modalMessage: {
+    fontSize: 18,
+    marginBottom: 20,
+  },
+  modalButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    backgroundColor: '#ff4141',
+    borderRadius: 5,
+  },
+  modalButtonText: {
+    color: '#FFF',
+    fontSize: 16,
   },
 });
