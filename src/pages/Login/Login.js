@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
-import { View, TextInput, Button, StyleSheet, Text, Alert, Pressable } from 'react-native';
+import { View, TextInput, Button, StyleSheet, Text, TouchableOpacity, Modal, Pressable } from 'react-native';
 import { initializeApp } from 'firebase/app';
-import { getAuth, createUserWithEmailAndPassword } from 'firebase/auth';
-import Modal from 'react-native-modal';
+import { getAuth, signInWithEmailAndPassword } from 'firebase/auth';
 
 // Configuração do Firebase
 const firebaseConfig = {
@@ -13,57 +12,74 @@ const firebaseConfig = {
   messagingSenderId: "720614305509",
   appId: "1:720614305509:web:ca2aff3904345a33702e0c"
 };
-// Inicialização do Firebase
-// Inicialização do Firebase
+
 const firebaseApp = initializeApp(firebaseConfig);
 const auth = getAuth(firebaseApp);
 
-const RegisterScreen = ({ navigation }) => {
+const LoginScreen = ({ navigation }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [fullName, setFullName] = useState('');
-  const [age, setAge] = useState('');
-  const [phone, setPhone] = useState('');
   const [error, setError] = useState('');
   const [isErrorModalVisible, setIsErrorModalVisible] = useState(false);
+  const [errorField, setErrorField] = useState('');
 
-  const handleRegister = () => {
-    if (!email || !password || !fullName || !age || !phone) {
-      setError('Por favor, preencha todos os campos corretamente.');
+  const handleLogin = () => {
+    if (!email || !password) {
+      setError('Por favor, preencha todos os campos');
       setIsErrorModalVisible(true);
       return;
     }
 
-    createUserWithEmailAndPassword(auth, email, password)
+    signInWithEmailAndPassword(auth, email, password)
       .then((userCredential) => {
         const user = userCredential.user;
-        // Registro do usuário bem-sucedido
-        console.log('User registered:', user);
-        navigation.navigate('TaskLists'); // Redirecionar para a tela "TaskLists"
+        // Login do usuário bem-sucedido
+        console.log('User logged in:', user);
+        // Redirecionar para a tela TaskLists
+        navigation.navigate('TaskLists');
       })
       .catch((error) => {
         // Tratamento de erros
         setError('Email ou senha inválidos.');
         setIsErrorModalVisible(true);
-        console.log('Registration error:', error);
+        console.log('Login error:', error);
       });
+  };
+
+  const handleCreateAccount = () => {
+    navigation.navigate('RegisterScreen');
   };
 
   const handleCloseErrorModal = () => {
     setIsErrorModalVisible(false);
   };
 
+  const handleFieldInputChange = (field, value) => {
+    if (error) {
+      setError('');
+      setIsErrorModalVisible(false);
+    }
+
+    if (field === 'email') {
+      setEmail(value);
+    } else if (field === 'password') {
+      setPassword(value);
+    }
+  };
+
   return (
     <View style={styles.container}>
       <View style={styles.formContainer}>
         <View style={styles.titleContainer}>
-          <Text style={styles.title}>Cadastre-se</Text>
+          <Text style={styles.title}>Login</Text>
         </View>
+
+        {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
         <TextInput
           style={styles.input}
           value={email}
-          onChangeText={setEmail}
+          onChangeText={(value) => handleFieldInputChange('email', value)}
           placeholder="Email"
           keyboardType="email-address"
         />
@@ -71,51 +87,38 @@ const RegisterScreen = ({ navigation }) => {
         <TextInput
           style={styles.input}
           value={password}
-          onChangeText={setPassword}
+          onChangeText={(value) => handleFieldInputChange('password', value)}
           placeholder="Password"
           secureTextEntry
         />
 
-        <TextInput
-          style={styles.input}
-          value={fullName}
-          onChangeText={setFullName}
-          placeholder="Full Name"
-        />
-
-        <TextInput
-          style={styles.input}
-          value={age}
-          onChangeText={setAge}
-          placeholder="Age"
-          keyboardType="numeric"
-        />
-
-        <TextInput
-          style={styles.input}
-          value={phone}
-          onChangeText={setPhone}
-          placeholder="Phone"
-          keyboardType="phone-pad"
-        />
-
         <Button
-          title="Register"
-          onPress={handleRegister}
+          title="Login"
+          onPress={handleLogin}
           color="#ff4141"
+          style={styles.buttonText}
         />
 
-        <Modal isVisible={isErrorModalVisible} animationIn="fadeIn" animationOut="fadeOut">
-          <View style={styles.modalContainer}>
-            <View style={styles.modalContent}>
-              <Text style={styles.modalMessage}>{error}</Text>
-              <Pressable style={styles.modalButton} onPress={handleCloseErrorModal}>
-                <Text style={styles.modalButtonText}>OK</Text>
-              </Pressable>
-            </View>
-          </View>
-        </Modal>
+        <TouchableOpacity onPress={handleCreateAccount}>
+          <Text style={styles.createAccountText}>Crie uma conta</Text>
+        </TouchableOpacity>
       </View>
+
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={isErrorModalVisible}
+        onRequestClose={handleCloseErrorModal}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalMessage}>{error}</Text>
+            <Pressable style={styles.modalButton} onPress={handleCloseErrorModal}>
+              <Text style={styles.modalButtonText}>OK</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -148,6 +151,13 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     paddingHorizontal: 10,
   },
+  buttonText: {
+    color: '#fff',
+  },
+  errorText: {
+    color: 'red',
+    marginBottom: 10,
+  },
   titleContainer: {
     alignItems: 'center',
     marginBottom: 20,
@@ -157,10 +167,16 @@ const styles = StyleSheet.create({
     color: '#ff4141',
     fontWeight: '600',
   },
+  createAccountText: {
+    color: '#ff4141',
+    textAlign: 'center',
+    marginTop: 10,
+  },
   modalContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
   modalContent: {
     backgroundColor: '#fff',
@@ -169,19 +185,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   modalMessage: {
-    fontSize: 16,
-    marginBottom: 20,
+    marginBottom: 10,
   },
   modalButton: {
     backgroundColor: '#ff4141',
-    paddingVertical: 10,
-    paddingHorizontal: 20,
+    padding: 10,
     borderRadius: 5,
+    marginTop: 10,
   },
   modalButtonText: {
     color: '#fff',
-    fontSize: 16,
+    fontWeight: 'bold',
   },
 });
 
-export default RegisterScreen;
+export default LoginScreen;
