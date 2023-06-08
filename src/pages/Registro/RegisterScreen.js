@@ -77,16 +77,17 @@ const RegisterScreen = ({ navigation }) => {
 
         set(userRef, userData);
 
-        setModalMessage('Usuário cadastrado com sucesso');
+        setModalMessage('Usuário cadastrado com sucesso!\nFaça o Login para continuar');
         setIsSuccessModalVisible(true);
-        // navigation.navigate('TaskLists'); // Redirecionar para a tela "TaskLists"
       })
       .catch((error) => {
         // Tratamento de erros
-        if (error.code === 'auth/invalid-email' || error.code === 'auth/email-already-in-use') {
-          setModalMessage('Email inválido ou já cadastrado no sistema, tente novamente.');
+        if (error.code === 'auth/email-already-in-use') {
+          setModalMessage('Endereço de email já cadastrado.');
+        } else if (error.code === 'auth/invalid-email') {
+          setModalMessage('Endereço de email incorreto.');
         } else {
-          setModalMessage('Ocorreu um erro ao cadastrar usuário. Tente novamente mais tarde.');
+          setModalMessage('Ocorreu um erro ao cadastrar o usuário. Por favor, tente novamente mais tarde.');
         }
         setIsErrorModalVisible(true);
         console.log('Registration error:', error);
@@ -99,7 +100,7 @@ const RegisterScreen = ({ navigation }) => {
 
   const handleCloseSuccessModal = () => {
     setIsSuccessModalVisible(false);
-    navigation.navigate('TaskList'); // Redirecionar para a tela "TaskLists"
+    navigation.goBack(); // Redirecionar para a tela "LoginScreen"
   };
 
   return (

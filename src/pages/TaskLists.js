@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { View, TextInput, Button, FlatList, StyleSheet, Text, TouchableOpacity, Modal, SafeAreaView, StatusBar } from 'react-native';
-import { getDatabase, ref, push, onValue, update, get } from 'firebase/database';
+import { getDatabase, ref, push, onValue, update, get, remove } from 'firebase/database';
 import { getAuth } from 'firebase/auth';
-import { database } from '../config/firebaseconfig';
+import { firebase, database } from '../config/firebaseconfig';
 import { Ionicons } from '@expo/vector-icons';
 import moment from 'moment';
 
@@ -21,6 +21,7 @@ const TaskList = ({ navigation }) => {
   const [isLoggedOut, setIsLoggedOut] = useState(false);
   const [userUID, setUserUID] = useState('');
   const [userName, setUserName] = useState('');
+  const [isEditModalVisible, setIsEditModalVisible] = useState(false);
 
   useEffect(() => {
     const auth = getAuth();
@@ -154,17 +155,62 @@ const TaskList = ({ navigation }) => {
     setIsTaskModalVisible(false);
   };
 
-  const handleLogout = () => {
-    setIsLoggedOut(true);
+  const openEditModal = () => {
+    setIsTaskModalVisible(false);
+    setIsEditModalVisible(true);
   };
 
+  const closeEditModal = () => {
+    setIsEditModalVisible(false);
+  };
+
+  const handleSaveChanges = () => {
+    const updatedTask = { ...selectedTask };
+
+    // Atualizar a descrição, título e data de conclusão da tarefa
+
+    // Atualizar a data de criação para o momento em que ele salvar
+    updatedTask.creationDate = moment().format('DD/MM/YYYY - HH:mm');
+
+    const updates = {};
+    updates[`tasks/${selectedTask.id}`] = updatedTask;
+
+    update(ref(database), updates)
+      .then(() => {
+        console.log('Alterações salvas com sucesso.');
+        setIsEditModalVisible(false);
+      })
+      .catch((error) => {
+        console.error('Erro ao salvar as alterações:', error);
+      });
+  };
+
+  const handleLogout = () => {
+    setIsLoggedOut(true);
+    navigation.goBack();
+  };
+  
   if (isLoggedOut) {
     return null;
   }
 
+  const handleDeleteTask = () => {
+    const taskRef = ref(database, 'tasks/' + selectedTask.id);
+    remove(taskRef)
+      .then(() => {
+        console.log('Tarefa excluída com sucesso');
+        setIsTaskModalVisible(false);
+      })
+      .catch((error) => {
+        console.error('Erro ao excluir a tarefa:', error);
+      });
+  };
+  
+
+
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar backgroundColor="#ffffff" barStyle="dark-content" />
+      <StatusBar backgroundColor="#ff4141" barStyle="light-content" />
 
       <View style={styles.header}>
         <Text style={styles.title}>Lista de Tarefas</Text>
@@ -238,31 +284,95 @@ const TaskList = ({ navigation }) => {
       </Modal>
 
       <Modal
+  animationType="fade"
+  transparent={true}
+  visible={isTaskModalVisible}
+  onRequestClose={closeTaskModal}
+>
+  {selectedTask && (
+    <View style={styles.modalContainer}>
+      <View style={styles.modalContent}>
+        <View style={styles.taskModalHeader}>
+          <Text style={styles.modalTitle}>Editar Tarefa</Text>
+          <TouchableOpacity style={styles.editButton} onPress={openEditModal}>
+            <Ionicons name="create-outline" size={24} color="#ff4141" />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.deleteButton} onPress={handleDeleteTask}>
+            <Ionicons name="trash-outline" size={24} color="#ff4141" />
+          </TouchableOpacity>
+        </View>
+
+        <Text style={styles.tarefaNm}>{selectedTask.name}</Text>
+        <Text style={styles.title2}>{selectedTask.creationDate}</Text>
+
+        <View>
+          <Text style={styles.taskModalText}>{selectedTask.description}</Text>
+          <Text style={styles.taskModalText}>Data de Conclusão: {selectedTask.completionDate}</Text>
+          <Text style={styles.taskModalText}>Criador: {selectedTask.createdBy}</Text>
+        </View>
+
+        <TouchableOpacity style={styles.modalButton} onPress={closeTaskModal}>
+          <Text style={styles.modalButtonText}>Fechar</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  )}
+</Modal>
+
+      <Modal
         animationType="fade"
         transparent={true}
-        visible={isTaskModalVisible}
-        onRequestClose={closeTaskModal}
+        visible={isEditModalVisible}
+        onRequestClose={closeEditModal}
       >
+        {selectedTask && (
         <View style={styles.modalContainer}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Detalhes da Tarefa</Text>
+            <Text style={styles.modalTitle}>Editar Tarefa</Text>
 
-            {selectedTask && (
-              <View>
-                <Text>Nome da Tarefa: {selectedTask.name}</Text>
-                <Text>Descrição: {selectedTask.description}</Text>
-                <Text>Criador: {selectedTask.createdBy}</Text>
-                <Text>Data de Criação: {selectedTask.creationDate}</Text>
-                <Text>Data de Conclusão: {selectedTask.completionDate}</Text>
-              </View>
-            )}
+            <TextInput
+              style={styles.input}
+              placeholder="Nome da Tarefa"
+              value={selectedTask.name}
+              onChangeText={(text) => setSelectedTask({ ...selectedTask, name: text })}
+              maxLength={50}
+              multiline={true}
+              numberOfLines={3}
+              textAlignVertical="top"
+            />
 
-            <TouchableOpacity style={styles.modalButton} onPress={closeTaskModal}>
-              <Text style={styles.modalButtonText}>Fechar</Text>
-            </TouchableOpacity>
+            <TextInput
+              style={styles.input}
+              placeholder="Descrição"
+              value={selectedTask.description}
+              onChangeText={(text) => setSelectedTask({ ...selectedTask, description: text })}
+              maxLength={400}
+              multiline={true}
+              numberOfLines={6}
+              textAlignVertical="top"
+            />
+
+            <TextInput
+              style={styles.input}
+              placeholder="Data de Conclusão"
+              value={selectedTask.completionDate}
+              onChangeText={(text) => setSelectedTask({ ...selectedTask, completionDate: text })}
+            />
+
+            <View style={styles.modalButtonsContainer}>
+              <TouchableOpacity style={styles.modalButton} onPress={handleSaveChanges}>
+                <Text style={styles.modalButtonText}>Salvar</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity style={styles.modalButton} onPress={closeEditModal}>
+                <Text style={styles.modalButtonText}>Cancelar</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
+        )}
       </Modal>
+
     </SafeAreaView>
   );
 };
