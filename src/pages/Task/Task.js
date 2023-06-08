@@ -1,20 +1,20 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 
 const Task = (props) => {
-    const { text, isSelected } = props;
-  
-    return (
-      <View style={[styles.item, isSelected && styles.selectedItem]}>
-        <View style={styles.itemLeft}>
-          <View style={[styles.square, isSelected && styles.selectedSquare, isSelected && styles.square2]}></View>
-          <Text style={[styles.itemText, isSelected && styles.selectedItemText, isSelected && styles.itemText2]}>{text}</Text>
-        </View>
-        <View style={[styles.circular, isSelected && styles.selectedCircular, isSelected && styles.circular2]}></View>
+  const { task, isSelected } = props;
+
+  return (
+    <View style={[styles.item, isSelected && styles.selectedItem]}>
+      <View style={styles.itemLeft}>
+        <View style={[styles.square, isSelected && styles.selectedSquare, isSelected && styles.square2]}></View>
+        <Text style={[styles.itemText, isSelected && styles.selectedItemText, isSelected && styles.itemText2]}>{task.name}</Text>
       </View>
-    );
-  };
-  
+      <View style={[styles.circular, isSelected && styles.selectedCircular, isSelected && styles.circular2]}></View>
+    </View>
+  );
+};
+
 
 const styles = StyleSheet.create({
   item: {
@@ -47,16 +47,16 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     marginRight: 15,
   },
-  
+
   itemText: {
     maxWidth: '80%',
-    fontWeight: 500,
-    color: "#000"
+    fontWeight: '500',
+    color: '#000',
   },
   itemText2: {
     maxWidth: '80%',
     textDecorationLine: 'line-through',
-    color:"#9a9a9a"
+    color: '#9a9a9a',
   },
   circular: {
     width: 12,

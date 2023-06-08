@@ -1,305 +1,269 @@
-import React, { useState } from 'react';
-import {
-  Keyboard,
-  KeyboardAvoidingView,
-  Modal,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  TouchableWithoutFeedback,
-  View
-} from 'react-native';
-
+import React, { useState, useEffect } from 'react';
+import { View, TextInput, Button, FlatList, StyleSheet, Text, TouchableOpacity, Modal, SafeAreaView, StatusBar } from 'react-native';
+import { getDatabase, ref, push, onValue, update, get } from 'firebase/database';
+import { getAuth } from 'firebase/auth';
+import { database } from '../config/firebaseconfig';
+import { Ionicons } from '@expo/vector-icons';
 import Task from './Task/Task';
 
-export default function TaskLists() {
-  const [task, setTask] = useState('');
-  const [taskItems, setTaskItems] = useState([]);
-  const [editingTask, setEditingTask] = useState(null);
-  const [editedTask, setEditedTask] = useState('');
-  const [showOptionsModal, setShowOptionsModal] = useState(false);
-  const [selectedTaskIndex, setSelectedTaskIndex] = useState(null);
-  const [showErrorModal, setShowErrorModal] = useState(false);
+import styles from './Style';
 
-  const handleAddTask = () => {
-    Keyboard.dismiss();
+const TaskList = ({ navigation }) => {
+  const [taskName, setTaskName] = useState('');
+  const [taskDescription, setTaskDescription] = useState('');
+  const [completionDate, setCompletionDate] = useState('');
+  const [tasks, setTasks] = useState([]);
+  const [isCreateModalVisible, setIsCreateModalVisible] = useState(false);
+  const [isTaskModalVisible, setIsTaskModalVisible] = useState(false);
+  const [selectedTask, setSelectedTask] = useState(null);
+  const [isLoggedOut, setIsLoggedOut] = useState(false);
+  const [userUID, setUserUID] = useState('');
+  const [userName, setUserName] = useState('');
 
-    if (task.trim() === '') {
-      setShowErrorModal(true);
-    } else {
-      setTaskItems([...taskItems, { text: task, isSelected: false }]);
-      setTask('');
+  useEffect(() => {
+    const auth = getAuth();
+    const user = auth.currentUser;
+    if (user) {
+      setUserUID(user.uid);
+      getUserFullName(user.uid);
     }
+  }, []);
+
+  useEffect(() => {
+    const tasksRef = ref(database, 'tasks');
+    const tasksListener = onValue(tasksRef, (snapshot) => {
+      const tasksData = snapshot.val();
+      if (tasksData) {
+        const tasksList = Object.keys(tasksData)
+          .map((key) => ({ id: key, ...tasksData[key] }))
+          .filter((task) => task.UID === userUID);
+        setTasks(tasksList);
+      } else {
+        setTasks([]);
+      }
+    });
+
+    return () => {
+      // Remove o listener quando o componente é desmontado
+      tasksListener();
+    };
+  }, [userUID]);
+
+  const getUserFullName = (uid) => {
+    const userRef = ref(database, `Users/${uid}`);
+    get(userRef)
+      .then((snapshot) => {
+        const user = snapshot.val();
+        if (user && user.fullname) {
+          setUserName(user.fullname);
+        }
+      })
+      .catch((error) => {
+        console.error('Erro ao obter nome do usuário:', error);
+      });
   };
 
-  const completeTask = (index) => {
-    let itemsCopy = [...taskItems];
-    itemsCopy.splice(index, 1);
-    setTaskItems(itemsCopy);
+  const createTask = () => {
+    const newTaskRef = push(ref(database, 'tasks'));
+    const newTaskKey = newTaskRef.key;
+
+    const newTask = {
+      UID: userUID,
+      name: taskName,
+      description: taskDescription,
+      completionDate: completionDate,
+      createdBy: userName,
+    };
+
+    const updates = {};
+    updates[`tasks/${newTaskKey}`] = newTask;
+
+    update(ref(database), updates)
+      .then(() => {
+        console.log('Dados da tarefa enviados com sucesso para o Realtime Database.');
+        setTaskName('');
+        setTaskDescription('');
+        setCompletionDate('');
+        setIsCreateModalVisible(false);
+      })
+      .catch((error) => {
+        console.error('Erro ao enviar dados da tarefa para o Realtime Database:', error);
+      });
   };
 
-  const handleEditTask = (index, editedTask) => {
-    let itemsCopy = [...taskItems];
-    itemsCopy[index].text = editedTask;
-    setTaskItems(itemsCopy);
-    setEditingTask(null);
-    setEditedTask('');
+  const handleTaskNameChange = (text) => {
+    setTaskName(text);
   };
 
-  const startEditingTask = (index) => {
-    setEditingTask(index);
-    setEditedTask(taskItems[index].text);
+  const handleTaskDescriptionChange = (text) => {
+    setTaskDescription(text);
   };
 
-  const handleSaveTask = (index) => {
-    if (editedTask.trim() !== '') {
-      handleEditTask(index, editedTask);
+  const handleCompletionDateChange = (text) => {
+    setCompletionDate(text);
+  };
+
+  const toggleTaskSelection = (taskId) => {
+    setTasks((prevTasks) =>
+      prevTasks.map((task) =>
+        task.id === taskId ? { ...task, isSelected: !task.isSelected } : task
+      )
+    );
+  };
+
+  const renderItem = ({ item }) => {
+    if (item.UID !== userUID) {
+      return null;
     }
+
+    return (
+      <TouchableOpacity onPress={() => toggleTaskSelection(item.id)}>
+        <Task
+          key={item.id}
+          isSelected={item.isSelected}
+          task={{
+            name: item.name,
+            description: item.description,
+            completionDate: item.completionDate,
+            createdBy: item.createdBy,
+          }}
+        />
+      </TouchableOpacity>
+    );
   };
 
-  const handleTaskOptions = (index) => {
-    setSelectedTaskIndex(index);
-    setShowOptionsModal(true);
+  const openCreateModal = () => {
+    setIsCreateModalVisible(true);
   };
 
-  const handleDeleteTask = () => {
-    let itemsCopy = [...taskItems];
-    itemsCopy.splice(selectedTaskIndex, 1);
-    setTaskItems(itemsCopy);
-    setShowOptionsModal(false);
+  const closeCreateModal = () => {
+    setIsCreateModalVisible(false);
   };
 
-  const handleEditTaskOption = () => {
-    setShowOptionsModal(false);
-    startEditingTask(selectedTaskIndex);
+  const openTaskModal = (taskId) => {
+    const task = tasks.find((item) => item.id === taskId);
+    setSelectedTask(task);
+    setIsTaskModalVisible(true);
   };
 
-  const closeModal = () => {
-    setShowOptionsModal(false);
+  const closeTaskModal = () => {
+    setIsTaskModalVisible(false);
   };
 
-  const handleCloseErrorModal = () => {
-    setShowErrorModal(false);
+  const handleLogout = () => {
+    setIsLoggedOut(true);
   };
 
-  const handleTaskPress = (index) => {
-    let itemsCopy = [...taskItems];
-    itemsCopy[index].isSelected = !itemsCopy[index].isSelected;
-    setTaskItems(itemsCopy);
-  };
+  if (isLoggedOut) {
+    return null;
+  }
 
   return (
-    <View style={styles.container}>
-      <ScrollView
-        contentContainerStyle={{
-          flexGrow: 1
-        }}
-        keyboardShouldPersistTaps='handled'
+    <SafeAreaView style={styles.container}>
+      <StatusBar backgroundColor="#ffffff" barStyle="dark-content" />
+
+      <View style={styles.header}>
+        <Text style={styles.title}>Lista de Tarefas</Text>
+        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+          <Ionicons name="log-out" size={24} color="#ff4141" />
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.taskContainer}>
+        <FlatList
+          data={tasks}
+          renderItem={renderItem}
+          keyExtractor={(item) => item.id}
+        />
+      </View>
+
+      <TouchableOpacity style={styles.addButton} onPress={openCreateModal}>
+        <Text style={styles.addButtonIcon}>+</Text>
+      </TouchableOpacity>
+
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={isCreateModalVisible}
+        onRequestClose={closeCreateModal}
       >
-        {/* Today's Tasks */}
-        <View style={styles.tasksWrapper}>
-          <Text style={styles.sectionTitle}>Tarefas a fazer</Text>
-          <View style={styles.items}>
-            {/* This is where the tasks will go! */}
-            {taskItems.map((item, index) => (
-              <TouchableOpacity
-                key={index}
-                onPress={() => handleTaskPress(index)}
-                onLongPress={() => handleTaskOptions(index)}
-              >
-                {editingTask === index ? (
-                  <TextInput
-                    style={styles.editInput}
-                    value={editedTask}
-                    onChangeText={(text) => setEditedTask(text)}
-                    autoFocus
-                    onSubmitEditing={() => handleSaveTask(index)}
-                  />
-                ) : (
-                  <Task
-                    text={item.text}
-                    isSelected={item.isSelected}
-                    onPress={() => handleTaskPress(index)}
-                  />
-                )}
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-      </ScrollView>
-
-      {editingTask === null && ( // Adicione esta condição
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.writeTaskWrapper}
-        >
-          <TextInput
-            style={styles.input}
-            placeholder="Digite uma tarefa"
-            value={task}
-            onChangeText={(text) => setTask(text)}
-          />
-          <TouchableOpacity onPress={() => handleAddTask()}>
-            <View style={styles.addWrapper}>
-              <Text style={styles.addText}>+</Text>
-            </View>
-          </TouchableOpacity>
-        </KeyboardAvoidingView>
-      )}
-
-      {/* Task Options Modal */}
-      <Modal visible={showOptionsModal} transparent={true} onRequestClose={closeModal}>
-        <TouchableWithoutFeedback onPress={closeModal}>
-          <View style={styles.modalBackground}>
-            <View style={styles.modalContent}>
-              <TouchableOpacity style={styles.optionButton} onPress={handleEditTaskOption}>
-                <Text style={styles.optionButtonText}>Edit</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.optionButton} onPress={handleDeleteTask}>
-                <Text style={styles.optionButtonText}>Delete</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.cancelButton} onPress={closeModal}>
-                <Text style={styles.cancelButtonText}>Cancel</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </TouchableWithoutFeedback>
-      </Modal>
-
-      {/* Error Modal */}
-      <Modal visible={showErrorModal} transparent={true} onRequestClose={handleCloseErrorModal}>
         <View style={styles.modalContainer}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalMessage}>Você deve preencher uma tarefa</Text>
-            <TouchableOpacity style={styles.modalButton} onPress={handleCloseErrorModal}>
-              <Text style={styles.modalButtonText}>OK</Text>
+            <Text style={styles.modalTitle}>Nova Tarefa</Text>
+
+            <TextInput
+              style={styles.input}
+              placeholder="Nome da Tarefa"
+              value={taskName}
+              onChangeText={handleTaskNameChange}
+              maxLength={50}
+              multiline={true}
+              numberOfLines={3}
+              textAlignVertical="top"
+            />
+
+            <TextInput
+              style={styles.input}
+              placeholder="Descrição"
+              value={taskDescription}
+              onChangeText={handleTaskDescriptionChange}
+              maxLength={400}
+              multiline={true}
+              numberOfLines={6}
+              textAlignVertical="top"
+            />
+
+            <TextInput
+              style={styles.input}
+              placeholder="Data de Conclusão"
+              value={completionDate}
+              onChangeText={handleCompletionDateChange}
+            />
+
+            <View style={styles.modalButtonsContainer}>
+              <TouchableOpacity style={styles.modalButton} onPress={createTask}>
+                <Text style={styles.modalButtonText}>Criar Tarefa</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity style={styles.modalButton} onPress={closeCreateModal}>
+                <Text style={styles.modalButtonText}>Cancelar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={isTaskModalVisible}
+        onRequestClose={closeTaskModal}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Detalhes da Tarefa</Text>
+
+            {selectedTask && (
+              <Task
+                key={selectedTask.id}
+                isSelected={selectedTask.isSelected}
+                task={{
+                  name: selectedTask.name,
+                  description: selectedTask.description,
+                  completionDate: selectedTask.completionDate,
+                  createdBy: selectedTask.createdBy,
+                }}
+              />
+            )}
+
+            <TouchableOpacity style={styles.modalButton} onPress={closeTaskModal}>
+              <Text style={styles.modalButtonText}>Fechar</Text>
             </TouchableOpacity>
           </View>
         </View>
       </Modal>
-    </View>
+    </SafeAreaView>
   );
-}
+};
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f4f4f4',
-  },
-  tasksWrapper: {
-    paddingTop: 80,
-    paddingHorizontal: 20,
-  },
-  sectionTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#ff4141',
-  },
-  items: {
-    marginTop: 30,
-  },
-  writeTaskWrapper: {
-    position: 'absolute',
-    bottom: 60,
-    width: '100%',
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'center',
-  },
-  input: {
-    marginLeft: 10,
-    paddingVertical: 15,
-    paddingHorizontal: 15,
-    backgroundColor: '#FFF',
-    borderRadius: 60,
-    borderColor: '#e1e1e1',
-    borderWidth: 1,
-    width: 320,
-  },
-  addWrapper: {
-    marginRight: 10,
-    width: 60,
-    height: 60,
-    backgroundColor: '#ff4141',
-    borderRadius: 60,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderColor: '#eaeaea',
-    borderWidth: 1,
-  },
-  addText: {
-    fontSize: 25,
-    color: 'white',
-  },
-  editInput: {
-    paddingVertical: 5,
-    paddingHorizontal: 12,
-    backgroundColor: '#FFF',
-    borderRadius: 5,
-    borderColor: '#C0C0C0',
-    borderWidth: 1,
-    width: '80%',
-  },
-  modalBackground: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalContent: {
-    backgroundColor: '#FFF',
-    borderRadius: 10,
-    padding: 20,
-    minWidth: 200,
-    alignItems: 'center',
-  },
-  optionButton: {
-    marginBottom: 15,
-    paddingHorizontal: 15,
-    paddingVertical: 10,
-    backgroundColor: '#FFF',
-    borderRadius: 5,
-    minWidth: 150,
-    alignItems: 'center',
-  },
-  optionButtonText: {
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  cancelButton: {
-    marginTop: 10,
-  },
-  cancelButtonText: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#888',
-  },
-  modalContainer: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalContent: {
-    backgroundColor: '#FFF',
-    borderRadius: 10,
-    padding: 20,
-    alignItems: 'center',
-  },
-  modalMessage: {
-    fontSize: 18,
-    marginBottom: 20,
-  },
-  modalButton: {
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    backgroundColor: '#ff4141',
-    borderRadius: 5,
-  },
-  modalButtonText: {
-    color: '#FFF',
-    fontSize: 16,
-  },
-});
+export default TaskList;

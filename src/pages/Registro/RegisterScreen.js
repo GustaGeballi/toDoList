@@ -1,21 +1,24 @@
 import React, { useState } from 'react';
-import { View, TextInput, Button, StyleSheet, Text, Alert, Pressable } from 'react-native';
-import { initializeApp } from 'firebase/app';
-import { getAuth, createUserWithEmailAndPassword } from 'firebase/auth';
+import { View, TextInput, Button, StyleSheet, Text, Pressable } from 'react-native';
 import Modal from 'react-native-modal';
+import { auth, database } from '../../config/firebaseconfig';
+import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { ref, set } from 'firebase/database';
+import styles from './Style';
 
-// Configuração do Firebase
-const firebaseConfig = {
-  apiKey: "AIzaSyBwboLjZZGUSE9xK3LTsdd0DgWLUHZA7WA",
-  authDomain: "todolist-50b5c.firebaseapp.com",
-  projectId: "todolist-50b5c",
-  storageBucket: "todolist-50b5c.appspot.com",
-  messagingSenderId: "720614305509",
-  appId: "1:720614305509:web:ca2aff3904345a33702e0c"
+const isValidPhoneNumber = (number) => {
+  // Verifica se o número de telefone possui 11 dígitos
+  if (number.length !== 11) {
+    return false;
+  }
+
+  // Verifica se o número de telefone contém apenas dígitos
+  if (!/^\d+$/.test(number)) {
+    return false;
+  }
+
+  return true;
 };
-// Inicialização do Firebase
-const firebaseApp = initializeApp(firebaseConfig);
-const auth = getAuth(firebaseApp);
 
 const RegisterScreen = ({ navigation }) => {
   const [email, setEmail] = useState('');
@@ -23,13 +26,33 @@ const RegisterScreen = ({ navigation }) => {
   const [fullName, setFullName] = useState('');
   const [age, setAge] = useState('');
   const [phone, setPhone] = useState('');
-  const [error, setError] = useState('');
   const [isErrorModalVisible, setIsErrorModalVisible] = useState(false);
+  const [modalMessage, setModalMessage] = useState('');
   const [selectedGender, setSelectedGender] = useState(null);
+  const [isSuccessModalVisible, setIsSuccessModalVisible] = useState(false);
 
   const handleRegister = () => {
-    if (!email || !password || !fullName || !age || !phone || !selectedGender) {
-      setError('Por favor, preencha todos os campos corretamente.');
+    if (!email || !password || !fullName || !age || !phone) {
+      setModalMessage('Por favor, preencha todos os campos corretamente.');
+      setIsErrorModalVisible(true);
+      return;
+    }
+
+    const ageNumber = parseInt(age);
+    if (ageNumber < 10 || ageNumber > 110) {
+      setModalMessage('Idade inválida, preencha corretamente.');
+      setIsErrorModalVisible(true);
+      return;
+    }
+
+    if (!isValidPhoneNumber(phone)) {
+      setModalMessage('Número de Celular Inválido');
+      setIsErrorModalVisible(true);
+      return;
+    }
+
+    if (password.length < 6) {
+      setModalMessage('Sua senha deve possuir no mínimo 6 caracteres');
       setIsErrorModalVisible(true);
       return;
     }
@@ -37,13 +60,34 @@ const RegisterScreen = ({ navigation }) => {
     createUserWithEmailAndPassword(auth, email, password)
       .then((userCredential) => {
         const user = userCredential.user;
-        // Registro do usuário bem-sucedido
-        console.log('User registered:', user);
-        navigation.navigate('TaskLists'); // Redirecionar para a tela "TaskLists"
+        const userId = user.uid;
+
+        // Salvar os dados do usuário no Realtime Database
+        const userRef = ref(database, `Users/${userId}`);
+        const userData = {
+          age: ageNumber,
+          email: email,
+          fullname: fullName,
+          password: password,
+          phone: phone,
+          sex: selectedGender,
+        };
+        // Adicionar a propriedade "uid" ao objeto userData
+        userData.uid = userId;
+
+        set(userRef, userData);
+
+        setModalMessage('Usuário cadastrado com sucesso');
+        setIsSuccessModalVisible(true);
+        // navigation.navigate('TaskLists'); // Redirecionar para a tela "TaskLists"
       })
       .catch((error) => {
         // Tratamento de erros
-        setError('Email ou senha inválidos.');
+        if (error.code === 'auth/invalid-email' || error.code === 'auth/email-already-in-use') {
+          setModalMessage('Email inválido ou já cadastrado no sistema, tente novamente.');
+        } else {
+          setModalMessage('Ocorreu um erro ao cadastrar usuário. Tente novamente mais tarde.');
+        }
         setIsErrorModalVisible(true);
         console.log('Registration error:', error);
       });
@@ -51,6 +95,11 @@ const RegisterScreen = ({ navigation }) => {
 
   const handleCloseErrorModal = () => {
     setIsErrorModalVisible(false);
+  };
+
+  const handleCloseSuccessModal = () => {
+    setIsSuccessModalVisible(false);
+    navigation.navigate('TaskList'); // Redirecionar para a tela "TaskLists"
   };
 
   return (
@@ -64,7 +113,7 @@ const RegisterScreen = ({ navigation }) => {
           style={styles.input}
           value={email}
           onChangeText={setEmail}
-          placeholder="Email"
+          placeholder="Endereço de Email"
           keyboardType="email-address"
         />
 
@@ -72,7 +121,7 @@ const RegisterScreen = ({ navigation }) => {
           style={styles.input}
           value={password}
           onChangeText={setPassword}
-          placeholder="Password"
+          placeholder="Senha"
           secureTextEntry
         />
 
@@ -80,14 +129,14 @@ const RegisterScreen = ({ navigation }) => {
           style={styles.input}
           value={fullName}
           onChangeText={setFullName}
-          placeholder="Full Name"
+          placeholder="Nome Completo"
         />
 
         <TextInput
           style={styles.input}
           value={age}
           onChangeText={setAge}
-          placeholder="Age"
+          placeholder="Idade"
           keyboardType="numeric"
         />
 
@@ -95,7 +144,7 @@ const RegisterScreen = ({ navigation }) => {
           style={styles.input}
           value={phone}
           onChangeText={setPhone}
-          placeholder="Phone"
+          placeholder="Celular"
           keyboardType="phone-pad"
         />
 
@@ -132,8 +181,19 @@ const RegisterScreen = ({ navigation }) => {
         <Modal isVisible={isErrorModalVisible} animationIn="fadeIn" animationOut="fadeOut">
           <View style={styles.modalContainer}>
             <View style={styles.modalContent}>
-              <Text style={styles.modalMessage}>{error}</Text>
+              <Text style={styles.modalMessage}>{modalMessage}</Text>
               <Pressable style={styles.modalButton} onPress={handleCloseErrorModal}>
+                <Text style={styles.modalButtonText}>OK</Text>
+              </Pressable>
+            </View>
+          </View>
+        </Modal>
+
+        <Modal isVisible={isSuccessModalVisible} animationIn="fadeIn" animationOut="fadeOut">
+          <View style={styles.modalContainer}>
+            <View style={styles.modalContent}>
+              <Text style={styles.modalMessage}>{modalMessage}</Text>
+              <Pressable style={styles.modalButton} onPress={handleCloseSuccessModal}>
                 <Text style={styles.modalButtonText}>OK</Text>
               </Pressable>
             </View>
@@ -143,95 +203,5 @@ const RegisterScreen = ({ navigation }) => {
     </View>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#f5f5f5',
-  },
-  formContainer: {
-    width: '80%',
-    backgroundColor: '#fff',
-    padding: 20,
-    borderRadius: 10,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  input: {
-    height: 40,
-    borderColor: 'gray',
-    borderWidth: 1,
-    marginBottom: 10,
-    paddingHorizontal: 10,
-  },
-  titleContainer: {
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  title: {
-    fontSize: 24,
-    color: '#ff4141',
-    fontWeight: '600',
-  },
-  genderContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  genderLabel: {
-    fontSize: 16,
-    marginRight: 10,
-  },
-  genderOptions: {
-    flexDirection: 'row',
-  },
-  genderOption: {
-    fontSize: 16,
-    marginRight: 10,
-    paddingVertical: 2,
-    paddingHorizontal: 6,
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 5,
-  },
-  selectedGenderOption: {
-    backgroundColor: '#ff4141',
-    color: '#fff',
-    borderColor: '#ff4141',
-  },
-  modalContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalContent: {
-    backgroundColor: '#fff',
-    padding: 20,
-    borderRadius: 10,
-    alignItems: 'center',
-  },
-  modalMessage: {
-    fontSize: 16,
-    marginBottom: 20,
-  },
-  modalButton: {
-    backgroundColor: '#ff4141',
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 5,
-  },
-  modalButtonText: {
-    color: '#fff',
-    fontSize: 16,
-  },
-});
 
 export default RegisterScreen;

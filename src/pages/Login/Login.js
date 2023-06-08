@@ -1,20 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useContext } from 'react';
 import { View, TextInput, Button, StyleSheet, Text, TouchableOpacity, Modal, Pressable } from 'react-native';
-import { initializeApp } from 'firebase/app';
-import { getAuth, signInWithEmailAndPassword } from 'firebase/auth';
+import { signInWithEmailAndPassword } from 'firebase/auth';
+import { auth } from '../../config/firebaseconfig';
+import { UserContext } from '../../contexts/UserContext';
 
-// Configuração do Firebase
-const firebaseConfig = {
-  apiKey: "AIzaSyBwboLjZZGUSE9xK3LTsdd0DgWLUHZA7WA",
-  authDomain: "todolist-50b5c.firebaseapp.com",
-  projectId: "todolist-50b5c",
-  storageBucket: "todolist-50b5c.appspot.com",
-  messagingSenderId: "720614305509",
-  appId: "1:720614305509:web:ca2aff3904345a33702e0c"
-};
-
-const firebaseApp = initializeApp(firebaseConfig);
-const auth = getAuth(firebaseApp);
+import styles from './Style';
 
 const LoginScreen = ({ navigation }) => {
   const [email, setEmail] = useState('');
@@ -22,6 +12,8 @@ const LoginScreen = ({ navigation }) => {
   const [error, setError] = useState('');
   const [isErrorModalVisible, setIsErrorModalVisible] = useState(false);
   const [errorField, setErrorField] = useState('');
+
+  const { setUser } = useContext(UserContext); // Obter o contexto do usuário
 
   const handleLogin = () => {
     if (!email || !password) {
@@ -35,8 +27,10 @@ const LoginScreen = ({ navigation }) => {
         const user = userCredential.user;
         // Login do usuário bem-sucedido
         console.log('User logged in:', user);
+        // Armazene os dados do usuário no contexto
+        setUser(user);
         // Redirecionar para a tela TaskLists
-        navigation.navigate('TaskLists');
+        navigation.navigate('TaskList');
       })
       .catch((error) => {
         // Tratamento de erros
@@ -80,7 +74,7 @@ const LoginScreen = ({ navigation }) => {
           style={styles.input}
           value={email}
           onChangeText={(value) => handleFieldInputChange('email', value)}
-          placeholder="Email"
+          placeholder="Endereço de e-mail"
           keyboardType="email-address"
         />
 
@@ -88,7 +82,7 @@ const LoginScreen = ({ navigation }) => {
           style={styles.input}
           value={password}
           onChangeText={(value) => handleFieldInputChange('password', value)}
-          placeholder="Password"
+          placeholder="Senha"
           secureTextEntry
         />
 
@@ -122,81 +116,5 @@ const LoginScreen = ({ navigation }) => {
     </View>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#f5f5f5',
-  },
-  formContainer: {
-    width: '80%',
-    backgroundColor: '#fff',
-    padding: 20,
-    borderRadius: 10,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  input: {
-    height: 40,
-    borderColor: 'gray',
-    borderWidth: 1,
-    marginBottom: 10,
-    paddingHorizontal: 10,
-  },
-  buttonText: {
-    color: '#fff',
-  },
-  errorText: {
-    color: 'red',
-    marginBottom: 10,
-  },
-  titleContainer: {
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  title: {
-    fontSize: 24,
-    color: '#ff4141',
-    fontWeight: '600',
-  },
-  createAccountText: {
-    color: '#ff4141',
-    textAlign: 'center',
-    marginTop: 10,
-  },
-  modalContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-  },
-  modalContent: {
-    backgroundColor: '#fff',
-    padding: 20,
-    borderRadius: 10,
-    alignItems: 'center',
-  },
-  modalMessage: {
-    marginBottom: 10,
-  },
-  modalButton: {
-    backgroundColor: '#ff4141',
-    padding: 10,
-    borderRadius: 5,
-    marginTop: 10,
-  },
-  modalButtonText: {
-    color: '#fff',
-    fontWeight: 'bold',
-  },
-});
 
 export default LoginScreen;
