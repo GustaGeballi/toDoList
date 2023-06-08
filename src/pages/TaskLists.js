@@ -4,6 +4,8 @@ import { getDatabase, ref, push, onValue, update, get } from 'firebase/database'
 import { getAuth } from 'firebase/auth';
 import { database } from '../config/firebaseconfig';
 import { Ionicons } from '@expo/vector-icons';
+import moment from 'moment';
+
 import Task from './Task/Task';
 
 import styles from './Style';
@@ -67,12 +69,14 @@ const TaskList = ({ navigation }) => {
     const newTaskRef = push(ref(database, 'tasks'));
     const newTaskKey = newTaskRef.key;
 
+    const creationDate = moment().format('DD/MM/YYYY - HH:mm');
     const newTask = {
       UID: userUID,
       name: taskName,
       description: taskDescription,
       completionDate: completionDate,
       createdBy: userName,
+      creationDate: creationDate,
     };
 
     const updates = {};
@@ -117,7 +121,7 @@ const TaskList = ({ navigation }) => {
     }
 
     return (
-      <TouchableOpacity onPress={() => toggleTaskSelection(item.id)}>
+      <TouchableOpacity onPress={() => toggleTaskSelection(item.id)} onLongPress={() => openTaskModal(item.id)}>
         <Task
           key={item.id}
           isSelected={item.isSelected}
@@ -244,16 +248,13 @@ const TaskList = ({ navigation }) => {
             <Text style={styles.modalTitle}>Detalhes da Tarefa</Text>
 
             {selectedTask && (
-              <Task
-                key={selectedTask.id}
-                isSelected={selectedTask.isSelected}
-                task={{
-                  name: selectedTask.name,
-                  description: selectedTask.description,
-                  completionDate: selectedTask.completionDate,
-                  createdBy: selectedTask.createdBy,
-                }}
-              />
+              <View>
+                <Text>Nome da Tarefa: {selectedTask.name}</Text>
+                <Text>Descrição: {selectedTask.description}</Text>
+                <Text>Criador: {selectedTask.createdBy}</Text>
+                <Text>Data de Criação: {selectedTask.creationDate}</Text>
+                <Text>Data de Conclusão: {selectedTask.completionDate}</Text>
+              </View>
             )}
 
             <TouchableOpacity style={styles.modalButton} onPress={closeTaskModal}>

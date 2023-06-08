@@ -90,6 +90,11 @@ const styles = StyleSheet.create({
       color: '#fff',
       fontWeight: 'bold',
     },
+    taskModalText: {
+      marginBottom: 10,
+      fontSize: 16,
+      fontWeight: 'bold',
+    },
   });
 
   export default styles;
