@@ -293,7 +293,7 @@ const TaskList = ({ navigation }) => {
     <View style={styles.modalContainer}>
       <View style={styles.modalContent}>
         <View style={styles.taskModalHeader}>
-          <Text style={styles.modalTitle}>Editar Tarefa</Text>
+          <Text style={styles.modalTitle}>Visualizar Tarefa</Text>
           <TouchableOpacity style={styles.editButton} onPress={openEditModal}>
             <Ionicons name="create-outline" size={24} color="#ff4141" />
           </TouchableOpacity>

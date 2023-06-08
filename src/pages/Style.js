@@ -125,13 +125,13 @@ const styles = StyleSheet.create({
     width: '100%',
     position: 'absolute',
     top: 0,
-    left: 200,
+    left: 220,
     color: '#ff4141',
   },
   deleteButton: {
     position: 'absolute',
     top: 0,
-    right: 200,
+    right: 220,
     color: '#ff4141',
   },
   statusContainer: {
